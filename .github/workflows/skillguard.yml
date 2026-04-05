@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install SkillGuard
-        run: pip install skillguard
+        run: pip install git+https://github.com/tyr0x9/skillguard.git
       - name: Run SkillGuard Scan
         run: skillguard scan . --mode warn --format json > skillguard-report.json
       - name: Upload Report

@@ -38,8 +38,17 @@ AIエージェント（Claude Code、Cowork など）は、スキルやプラグ
 ### インストール
 
 ```bash
-pip install skillguard
+# GitHubから直接インストール（PyPI公開前はこちらを使用）
+pip install git+https://github.com/tyr0x9/skillguard.git
+
+# ローカルにクローンした場合
+git clone https://github.com/tyr0x9/skillguard.git
+cd skillguard
+pip install .
 ```
+
+> **注意:** `pip install skillguard` はPyPI上の名前を確保するまで使用しないでください。
+> PyPI名を確保する前に公開すると、第三者が同名パッケージを登録できてしまいます（サプライチェーン攻撃の典型的手口です）。
 
 ### スキャン実行
 
@@ -225,7 +234,7 @@ jobs:
           python-version: "3.11"
 
       - name: SkillGuardをインストール
-        run: pip install skillguard
+        run: pip install git+https://github.com/tyr0x9/skillguard.git
 
       - name: セキュリティスキャン実行
         run: skillguard scan . --mode warn --format json > skillguard-report.json
