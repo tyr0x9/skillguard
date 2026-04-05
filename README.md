@@ -41,10 +41,11 @@ AIエージェント（Claude Code、Cowork など）は、スキルやプラグ
 pip install skillguard-ai
 ```
 
-# ローカルにクローンした場合
+ローカルにクローンした場合：
+
 ```bash
-git clone https://github.com/tyr0x9/skillguard.git
-cd skillguard
+git clone https://github.com/tyr0x9/skillguard-ai.git
+cd skillguard-ai
 pip install .
 ```
 
