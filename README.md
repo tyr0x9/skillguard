@@ -8,7 +8,7 @@
 
 ## SkillGuardとは
 
-SkillGuardは、**AIエージェントのSkill・Plugin・MCPサーバー・依存関係**を、インストール前にセキュリティ審査するツールです。
+SkillGuardは、**AIエージェントのSkill・Plugin・MCPサーバー・依存関係**を、インストール前にセキュリティチェックするツールです。
 
 単なるスキャナーではなく、「**Skill Admission Controller**」として設計されています。
 脅威を検知するだけでなく、リスクに応じて**導入可否を自動判定**します。
