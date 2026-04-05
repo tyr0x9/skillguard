@@ -1,0 +1,82 @@
+rules:
+  - id: prompt_exfil_keyword
+    title: "Prompt string instructs data exfiltration"
+    description: "Prompt strings containing exfiltration instructions ('send this to', 'upload', 'exfiltrate') suggest the agent is being directed to leak data. In LLM/agent contexts, prompts are executable instructions."
+    category: prompts
+    severity: CRITICAL
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.yaml"
+      - "*.yml"
+      - "*.json"
+      - "SKILL.md"
+      - "*.md"
+      - "*.txt"
+    patterns:
+      - "(?i)(exfiltrate|exfil)[^\\n]{0,100}"
+      - "(?i)send\\s+(this|the\\s+(data|result|output|content|file))[^\\n]{0,100}to\\s+(http|https|ftp|smtp|\\w+\\.\\w+)"
+      - "(?i)upload\\s+(this|the\\s+(data|file|content|result))[^\\n]{0,100}to\\s+(http|https|ftp|\\w+\\.\\w+)"
+      - "(?i)(leak|dump|transmit)[^\\n]{0,50}(credential|secret|token|password|api.key)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: [secret, credential]
+
+  - id: prompt_data_collection_instruction
+    title: "Prompt instructs collection of sensitive system data"
+    description: "Prompt strings directing collection of environment variables, SSH keys, or other credentials are a hallmark of prompt-injection attacks targeting AI agents."
+    category: prompts
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.yaml"
+      - "*.yml"
+      - "SKILL.md"
+      - "*.md"
+    patterns:
+      - "(?i)(read|get|collect|gather|extract)[^\\n]{0,80}(ssh.key|api.key|password|token|secret|credential|env.var)"
+      - "(?i)(list|dump|show)[^\\n]{0,80}(environment\\s+variable|os\\.environ|process\\.env|\\$HOME)"
+      - "(?i)ignore\\s+(previous|prior|above|all)[^\\n]{0,50}(instruction|rule|constraint|restriction)"
+    execution_surface: [runtime]
+    capabilities: [filesystem]
+    asset_reach: [credential, secret]
+
+  - id: prompt_tool_chain_abuse
+    title: "Prompt chains file-read with network send"
+    description: "Prompts that combine file reading with network operations describe a read-then-exfiltrate attack chain. Common in prompt-injection attacks against file-system-capable agents."
+    category: prompts
+    severity: CRITICAL
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.yaml"
+      - "*.yml"
+      - "SKILL.md"
+      - "*.md"
+    patterns:
+      - "(?i)(read|open|cat)[^\\n]{0,100}(then|and)[^\\n]{0,100}(send|post|upload|http)"
+      - "(?i)(read_file|file_read|open_file)[^\\n]{0,100}(http_post|send|upload|requests\\.post)"
+      - "(?i)step\\s*[12][^\\n]{0,80}(read|open)[^\\n]{0,200}step\\s*[23][^\\n]{0,80}(send|post|upload)"
+    execution_surface: [runtime]
+    capabilities: [network, filesystem]
+    asset_reach: [credential, secret]
+
+  - id: prompt_return_sensitive_output
+    title: "Returning or yielding sensitive data as output"
+    description: "Functions that return environment variables, credentials, or file contents as their output create an exfiltration path — in agent contexts, return values are often logged or sent upstream."
+    category: prompts
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "return\\s+[^\\n]{0,100}os\\.environ[^\\n]{0,50}"
+      - "return\\s+[^\\n]{0,100}os\\.getenv\\s*\\([^)]{0,50}\\)"
+      - "yield\\s+[^\\n]{0,100}(os\\.environ|password|secret|token|api_key)"
+      - "return\\s+dict\\s*\\(\\s*os\\.environ\\s*\\)"
+    execution_surface: [runtime]
+    capabilities: []
+    asset_reach: [secret, credential]

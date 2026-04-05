@@ -252,3 +252,63 @@ rules:
     execution_surface: [install, runtime]
     capabilities: [shell, network, process]
     asset_reach: []
+
+  - id: exec_importlib_dynamic
+    title: "Dynamic module loading via importlib"
+    description: "importlib.import_module() with a variable argument can load attacker-controlled code at runtime."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "importlib\\.import_module\\s*\\(\\s*[^'\"]"
+      - "importlib\\.import_module\\s*\\([^)]{0,100}(format|join|\\+|f['\"])"
+      - "importlib\\.util\\.spec_from_file_location\\s*\\("
+      - "__import__\\s*\\(\\s*[^'\"]"
+      - "__import__\\s*\\([^)]{0,100}(format|join|\\+|f['\"])"
+    execution_surface: [install, runtime]
+    capabilities: [process]
+    asset_reach: []
+
+  - id: exec_getattr_dynamic
+    title: "Dynamic attribute access for code execution"
+    description: "getattr() with variable arguments can invoke arbitrary methods, bypassing static analysis."
+    category: execution
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "getattr\\s*\\([^)]{0,100},\\s*[^'\"\\)]{3,}\\)\\s*\\("
+      - "getattr\\s*\\(\\s*\\w+\\s*,\\s*(cmd|func|method|action|handler|callback)[^)]{0,50}\\)"
+    execution_surface: [runtime]
+    capabilities: [process]
+    asset_reach: []
+
+  - id: exec_subprocess_critical_cmd
+    title: "subprocess executing dangerous command"
+    description: "subprocess calls with rm -rf / nc / dd / mkfs execute commands that can destroy data or open backdoors."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "subprocess\\.[^(\\n]{0,50}\\([^)\\n]{0,200}(rm\\s+-[rf]{1,2}\\s*/|rm\\s+-rf)"
+      - "subprocess\\.[^(\\n]{0,50}\\([^)\\n]{0,200}\\bnc\\s+-[elp]"
+      - "subprocess\\.[^(\\n]{0,50}\\([^)\\n]{0,200}(dd\\s+if=|mkfs\\.?\\w+|shred\\s)"
+      - "subprocess\\.[^(\\n]{0,50}\\([^)\\n]{0,200}(curl|wget)[^)\\n]{0,100}\\|\\s*(bash|sh)"
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_subprocess_high_risk_cmd
+    title: "subprocess executing high-risk network command"
+    description: "subprocess with curl/wget/nc without piping — may be used for data exfiltration or download."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "subprocess\\.[^(\\n]{0,50}\\([^)\\n]{0,200}['\"]\\s*(curl|wget|nc|ncat|nmap)\\b"
+    execution_surface: [runtime]
+    capabilities: [shell, network, process]
+    asset_reach: []

@@ -270,3 +270,39 @@ rules:
     execution_surface: [runtime]
     capabilities: [network]
     asset_reach: [secret, credential]
+
+  - id: net_ip_direct_connect
+    title: "Direct IP address connection (bypasses DNS)"
+    description: "Connecting directly to an IP address bypasses hostname-based filtering and is rarely needed in legitimate code. Often used by malware to hide C2 servers."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+      - "*.bash"
+    patterns:
+      - "requests\\.(get|post|put|delete|patch)\\s*\\(['\"]https?://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|::1)[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}"
+      - "fetch\\s*\\(['\"]https?://[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}"
+      - "curl[^\\n]{0,50}https?://[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}"
+      - "\\.connect\\s*\\(\\s*['\"][0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}['\"]"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_print_sensitive_output
+    title: "Printing/logging sensitive data (output exfiltration path)"
+    description: "print() or logging of environment variables, credentials, or file contents creates an output channel for data exfiltration, especially in agent/LLM contexts where output is captured."
+    category: network
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "print\\s*\\([^)\\n]{0,200}(os\\.environ|os\\.getenv|getenv)[^)\\n]{0,100}\\)"
+      - "print\\s*\\([^)\\n]{0,200}(password|secret|token|api_key|private_key)[^)\\n]{0,100}\\)"
+      - "logging\\.(info|warning|error|debug|critical)\\s*\\([^)\\n]{0,200}(os\\.environ|password|secret|token)"
+      - "sys\\.stdout\\.write\\s*\\([^)\\n]{0,200}(os\\.environ|password|secret|token)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: [secret, credential]

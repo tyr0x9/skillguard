@@ -156,6 +156,7 @@ def _apply_correlations(findings: List[Finding]) -> List[Finding]:
             "cred_ssh_key_read", "cred_aws_credentials", "cred_env_file",
             "cred_kubeconfig", "cred_gcloud_creds", "cred_git_credentials",
             "cred_docker_config", "cred_gcp_service_account",
+            "cred_passwd_file", "cred_proc_environ", "cred_host_keys",
         } or ("open" in f.matched_text.lower() and any(
             p in f.matched_text for p in ["/.ssh", "/.aws", ".env", "kubeconfig", "credential"]
         ))
@@ -179,6 +180,18 @@ def _apply_correlations(findings: List[Finding]) -> List[Finding]:
     )
     has_obfuscation = any(f.category == "obfuscation" for f in findings)
     has_persistence = any(f.category == "persistence" for f in findings)
+    has_base64 = any(
+        "base64" in f.matched_text.lower() or f.rule_id in {
+            "obf_base64_encoded_payload", "exec_base64_decode_pipe",
+        }
+        for f in findings
+    )
+    has_dangerous_subprocess = any(
+        f.rule_id == "exec_subprocess_critical_cmd"
+        for f in findings
+    )
+    has_prompt_exfil = any(f.category == "prompts" for f in findings)
+    has_ip_direct = any(f.rule_id == "net_ip_direct_connect" for f in findings)
 
     if has_file_read and has_network_send:
         correlation_findings.append(Finding(
@@ -253,6 +266,70 @@ def _apply_correlations(findings: List[Finding]) -> List[Finding]:
             execution_surface=[ExecutionSurface.INSTALL, ExecutionSurface.RUNTIME],
             capabilities=[Capability.NETWORK, Capability.PROCESS],
             asset_reach=[],
+        ))
+
+    # base64エンコード + ネットワーク送信 → データ隠蔽して送信
+    if has_base64 and has_network_send:
+        correlation_findings.append(Finding(
+            rule_id="corr_base64_network",
+            title="Base64 encoding + network send (encoded exfiltration)",
+            description="Base64 encoding AND network communication detected. Data encoded in base64 before sending is a classic technique to bypass content inspection.",
+            severity=Severity.CRITICAL,
+            file_path="[correlation]",
+            line_number=None,
+            matched_text="base64 + network_send",
+            category="correlation",
+            execution_surface=[ExecutionSurface.RUNTIME],
+            capabilities=[Capability.NETWORK],
+            asset_reach=[AssetReach.SECRET],
+        ))
+
+    # 危険なsubprocessコマンド + 環境変数アクセス → 環境破壊 or 流出
+    if has_dangerous_subprocess and has_env_read:
+        correlation_findings.append(Finding(
+            rule_id="corr_dangerous_cmd_env",
+            title="Dangerous subprocess command + env access (destructive exfiltration)",
+            description="A destructive subprocess command (rm -rf, nc, dd) combined with environment variable access suggests environment-aware destructive behavior or backdoor.",
+            severity=Severity.CRITICAL,
+            file_path="[correlation]",
+            line_number=None,
+            matched_text="subprocess_critical_cmd + os.environ",
+            category="correlation",
+            execution_surface=[ExecutionSurface.RUNTIME, ExecutionSurface.INSTALL],
+            capabilities=[Capability.SHELL, Capability.PROCESS],
+            asset_reach=[AssetReach.SECRET, AssetReach.CREDENTIAL],
+        ))
+
+    # プロンプト指示 + ネットワーク送信 → プロンプトインジェクション実行
+    if has_prompt_exfil and has_network_send:
+        correlation_findings.append(Finding(
+            rule_id="corr_prompt_network",
+            title="Prompt exfiltration instruction + network (prompt injection executing)",
+            description="Prompt strings with exfiltration keywords AND active network code detected. The agent may be executing prompt-injected instructions to send data out.",
+            severity=Severity.CRITICAL,
+            file_path="[correlation]",
+            line_number=None,
+            matched_text="prompt_exfil_keyword + network_send",
+            category="correlation",
+            execution_surface=[ExecutionSurface.RUNTIME],
+            capabilities=[Capability.NETWORK],
+            asset_reach=[AssetReach.SECRET, AssetReach.CREDENTIAL],
+        ))
+
+    # IP直指定 + ファイル読み取り → C2への直接流出
+    if has_ip_direct and has_file_read:
+        correlation_findings.append(Finding(
+            rule_id="corr_ip_direct_file_read",
+            title="Direct IP connection + sensitive file read (stealth exfiltration)",
+            description="Connecting directly to an IP address (bypassing DNS) while reading sensitive files strongly indicates stealth credential exfiltration to a C2 server.",
+            severity=Severity.CRITICAL,
+            file_path="[correlation]",
+            line_number=None,
+            matched_text="ip_direct_connect + credential_file_read",
+            category="correlation",
+            execution_surface=[ExecutionSurface.RUNTIME],
+            capabilities=[Capability.NETWORK, Capability.FILESYSTEM],
+            asset_reach=[AssetReach.CREDENTIAL, AssetReach.SECRET],
         ))
 
     return correlation_findings
