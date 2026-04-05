@@ -1,0 +1,254 @@
+rules:
+  - id: exec_curl_pipe_sh
+    title: "curl piped to shell"
+    description: "Downloading and executing remote scripts is a common supply chain attack vector. An attacker can serve different content to different requesters."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+      - "SKILL.md"
+      - "README.md"
+      - "Makefile"
+    patterns:
+      - "curl[^|\\n]{0,200}\\|[^|\\n]{0,50}(sh|bash)"
+      - "curl[^\\n]{0,200}\\|\\s*(sh|bash)"
+    execution_surface: [install, hook]
+    capabilities: [shell, network]
+    asset_reach: []
+
+  - id: exec_wget_pipe_sh
+    title: "wget piped to shell"
+    description: "Downloading and executing remote scripts via wget is a common supply chain attack vector."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+      - "SKILL.md"
+      - "README.md"
+      - "Makefile"
+    patterns:
+      - "wget[^|\\n]{0,200}\\|[^|\\n]{0,50}(sh|bash)"
+      - "wget\\s+-O-[^\\n]{0,200}\\|\\s*(sh|bash)"
+      - "wget\\s+--quiet[^\\n]{0,200}\\|\\s*(sh|bash)"
+    execution_surface: [install, hook]
+    capabilities: [shell, network]
+    asset_reach: []
+
+  - id: exec_base64_decode_pipe
+    title: "base64 decode piped to shell"
+    description: "Decoding and executing base64-encoded payloads is used to evade static analysis."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "*.js"
+      - "scripts/*"
+    patterns:
+      - "base64\\s+-d[^|\\n]{0,100}\\|[^|\\n]{0,50}(sh|bash|python|perl|ruby|node)"
+      - "base64\\s+--decode[^|\\n]{0,100}\\|[^|\\n]{0,50}(sh|bash|python|perl|ruby|node)"
+      - "\\|\\s*base64\\s+-d\\s*\\|\\s*(sh|bash)"
+    execution_surface: [install, hook, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_eval_shell
+    title: "eval with variable or command input"
+    description: "eval() executes arbitrary code and is a common code injection vector."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+    patterns:
+      - "\\beval\\s+\\$\\("
+      - "\\beval\\s+\"\\$"
+      - "\\beval\\s+`"
+      - "\\beval\\s+\\$\\{"
+    execution_surface: [runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_os_system
+    title: "os.system() call"
+    description: "os.system() executes shell commands and can be used for arbitrary code execution."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "\\bos\\.system\\s*\\("
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_subprocess_shell
+    title: "subprocess with shell=True"
+    description: "Using shell=True in subprocess calls is a security risk as it can allow shell injection."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "subprocess\\.(call|run|Popen|check_output|check_call)[^)\\n]{0,300}shell\\s*=\\s*True"
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_python_remote_exec
+    title: "Python executing remote content"
+    description: "Executing Python with content fetched from a remote source enables arbitrary code execution."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+      - "Makefile"
+    patterns:
+      - "python[23]?\\s+-c\\s+['\"]import\\s+urllib"
+      - "python[23]?\\s+-c\\s+['\"]import\\s+requests"
+      - "curl[^|\\n]{0,200}\\|\\s*python[23]?"
+      - "wget[^\\n]{0,200}\\|\\s*python[23]?"
+    execution_surface: [install, hook]
+    capabilities: [shell, network, process]
+    asset_reach: []
+
+  - id: exec_node_remote_exec
+    title: "Node.js executing remote content"
+    description: "Executing Node.js with remote content enables arbitrary code execution."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+    patterns:
+      - "node\\s+-e\\s+['\"]require\\(['\"]https?:"
+      - "curl[^|\\n]{0,200}\\|\\s*node"
+      - "wget[^\\n]{0,200}\\|\\s*node"
+    execution_surface: [install, hook]
+    capabilities: [shell, network, process]
+    asset_reach: []
+
+  - id: exec_powershell_encoded
+    title: "PowerShell encoded command"
+    description: "PowerShell -EncodedCommand or -enc is used to hide malicious commands from inspection."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.ps1"
+      - "*.bat"
+      - "*.cmd"
+      - "*.sh"
+    patterns:
+      - "powershell[^\\n]{0,100}(-enc|-EncodedCommand|-e\\s+[A-Za-z0-9+/=]{20,})"
+      - "pwsh[^\\n]{0,100}(-enc|-EncodedCommand)"
+    execution_surface: [install, hook]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_xargs_sh
+    title: "xargs with shell execution"
+    description: "xargs piped to sh/bash can execute arbitrary commands from input."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+    patterns:
+      - "xargs[^\\n]{0,100}(sh|bash)\\s+-c"
+      - "\\|\\s*xargs\\s+(sh|bash)"
+    execution_surface: [runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_bash_process_sub
+    title: "Bash process substitution with remote content"
+    description: "Bash process substitution with remote content allows executing downloaded code."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+    patterns:
+      - "bash\\s+<\\(\\s*(curl|wget)"
+      - "source\\s+<\\(\\s*(curl|wget)"
+      - "\\.\\s+<\\(\\s*(curl|wget)"
+    execution_surface: [install, hook]
+    capabilities: [shell, network]
+    asset_reach: []
+
+  - id: exec_python_exec
+    title: "exec() builtin in Python"
+    description: "Python's exec() executes arbitrary code strings and is a common code injection vector."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "\\bexec\\s*\\([^)]{0,200}(request|urlopen|urlretrieve|download|fetch|remote|http|https)"
+      - "\\bexec\\s*\\(\\s*open\\s*\\("
+      - "\\bexec\\s*\\(\\s*base64"
+      - "\\bexec\\s*\\(\\s*decode"
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_ruby_eval
+    title: "Ruby eval with external data"
+    description: "Ruby eval() executing external or user-supplied data enables arbitrary code execution."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.rb"
+    patterns:
+      - "\\beval\\s*\\(\\s*(Net::HTTP|open|IO\\.read|File\\.read)"
+      - "\\beval\\s*\\(\\s*`"
+      - "\\beval\\s*\\(.*\\.(get|post|fetch|read)"
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_perl_system
+    title: "Perl system() or exec() calls"
+    description: "Perl's system() and exec() functions can execute arbitrary shell commands."
+    category: execution
+    severity: HIGH
+    file_patterns:
+      - "*.pl"
+      - "*.pm"
+    patterns:
+      - "\\bsystem\\s*\\(['\"].*curl"
+      - "\\bsystem\\s*\\(['\"].*wget"
+      - "\\bexec\\s*\\(['\"].*curl"
+      - "\\`curl[^`]*\\`"
+      - "\\`wget[^`]*\\`"
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: exec_dynamic_import
+    title: "Dynamic import with external URL"
+    description: "Importing code from external URLs enables remote code execution."
+    category: execution
+    severity: CRITICAL
+    file_patterns:
+      - "*.js"
+      - "*.ts"
+      - "*.mjs"
+    patterns:
+      - "import\\s*\\(['\"]https?://"
+      - "require\\s*\\(['\"]https?://"
+      - "\\bimport\\([^)]{0,200}https?://"
+    execution_surface: [install, runtime]
+    capabilities: [shell, network, process]
+    asset_reach: []

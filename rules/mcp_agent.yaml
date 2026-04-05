@@ -1,0 +1,167 @@
+rules:
+  - id: mcp_auto_approve_all
+    title: "Auto-approve all MCP tools"
+    description: "autoApprove: '*' or 'all' grants all MCP tools automatic execution without user confirmation, bypassing safety controls."
+    category: mcp_agent
+    severity: CRITICAL
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"autoApprove\"\\s*:\\s*\\[\\s*\"\\*\"\\s*\\]"
+      - "\"autoApprove\"\\s*:\\s*\"\\*\""
+      - "\"autoApprove\"\\s*:\\s*\"all\""
+      - "auto_approve:\\s*\\[\\s*['\"]\\*['\"]\\s*\\]"
+      - "autoApprove:\\s*\\[\\s*['\"]\\*['\"]\\s*\\]"
+    execution_surface: [runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: mcp_broad_filesystem
+    title: "Filesystem MCP with root or home directory access"
+    description: "Filesystem MCP server configured with root (/) or home (~) directory access can read sensitive files."
+    category: mcp_agent
+    severity: HIGH
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"filesystem\"[^}]{0,500}\"args\"[^}]{0,300}\"[/~]\""
+      - "filesystem[^\\n]{0,200}args[^\\n]{0,200}['\"][/~]['\"]"
+    execution_surface: [runtime]
+    capabilities: [filesystem]
+    asset_reach: [config, credential]
+
+  - id: mcp_unrestricted_shell
+    title: "Shell/exec MCP with no restrictions"
+    description: "A shell or exec MCP server without command restrictions can execute arbitrary code."
+    category: mcp_agent
+    severity: CRITICAL
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"(shell|exec|terminal|bash|command)\"[^}]{0,500}\"command\"\\s*:\\s*\"(bash|sh|zsh|cmd|powershell)\""
+      - "(shell|exec|terminal)[^\\n]{0,200}command[^\\n]{0,200}(bash|sh|zsh)"
+    execution_surface: [runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: mcp_no_tool_filtering
+    title: "No tool filtering in MCP server configuration"
+    description: "Without an allowedTools list, all tools from an MCP server are accessible by the agent."
+    category: mcp_agent
+    severity: MEDIUM
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"mcpServers\"\\s*:[^}]{0,2000}(?!\"allowedTools\")"
+    execution_surface: [runtime]
+    capabilities: []
+    asset_reach: []
+
+  - id: mcp_agent_trust_all
+    title: "MCP trust level set to all or unsafe"
+    description: "Setting trust to 'all' or 'unsafe' bypasses security validation for all MCP operations."
+    category: mcp_agent
+    severity: CRITICAL
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"trust\"\\s*:\\s*\"(all|unsafe|full)\""
+      - "\"trustLevel\"\\s*:\\s*\"(all|unsafe|full)\""
+      - "trust:\\s*(all|unsafe|full)"
+    execution_surface: [runtime]
+    capabilities: []
+    asset_reach: []
+
+  - id: mcp_external_mcp_server
+    title: "MCP server pointing to external URL"
+    description: "MCP servers pointing to external URLs may be untrusted and could serve malicious tool definitions."
+    category: mcp_agent
+    severity: HIGH
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"url\"\\s*:\\s*\"https?://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)"
+      - "\"baseUrl\"\\s*:\\s*\"https?://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)"
+      - "url:\\s*https?://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: mcp_skill_auto_execute
+    title: "Skill configured for automatic execution"
+    description: "autoExecute allows skills to run without user confirmation, bypassing human oversight."
+    category: mcp_agent
+    severity: HIGH
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"autoExecute\"\\s*:\\s*true"
+      - "\"auto_execute\"\\s*:\\s*true"
+      - "autoExecute:\\s*true"
+      - "auto_execute:\\s*true"
+    execution_surface: [runtime]
+    capabilities: [process]
+    asset_reach: []
+
+  - id: mcp_broad_read_permissions
+    title: "Read permissions on sensitive directories"
+    description: "MCP server with read access to sensitive directories like /etc, ~/.ssh, or ~/.aws."
+    category: mcp_agent
+    severity: HIGH
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"read\"[^\\]]{0,200}\"(/etc|~/.ssh|~/.aws|~/.kube|/root)\""
+      - "read:[^\\n]{0,200}(/etc|~/.ssh|~/.aws|~/.kube|/root)"
+    execution_surface: [runtime]
+    capabilities: [filesystem]
+    asset_reach: [credential, secret]
+
+  - id: mcp_write_system_dirs
+    title: "Write permissions on system directories"
+    description: "MCP server with write access to system directories can modify system files."
+    category: mcp_agent
+    severity: CRITICAL
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"write\"[^\\]]{0,200}\"(/etc|/bin|/usr|/sbin|/lib|/boot)\""
+      - "write:[^\\n]{0,200}(/etc|/bin|/usr|/sbin|/lib|/boot)"
+    execution_surface: [runtime]
+    capabilities: [filesystem]
+    asset_reach: []
+
+  - id: mcp_hook_pre_post
+    title: "Pre/post hooks with shell execution"
+    description: "Pre/post hooks in MCP or skill configs that execute shell commands run with agent permissions."
+    category: mcp_agent
+    severity: HIGH
+    file_patterns:
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    patterns:
+      - "\"(pre|post)Hook\"\\s*:\\s*\"[^\"]{0,200}(sh|bash|exec|python|node)"
+      - "\"hooks\"[^}]{0,500}\"(pre|post)\"\\s*:\\s*\"[^\"]{0,200}(sh|bash|exec)"
+      - "(pre|post)_hook[^\\n]{0,200}(sh|bash|exec|python|node)"
+    execution_surface: [hook]
+    capabilities: [shell]
+    asset_reach: []

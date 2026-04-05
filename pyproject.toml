@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skillguard"
+version = "0.1.0"
+description = "AI Agent Skill Supply Chain Security Scanner"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+skillguard = "skillguard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["skillguard*"]
+
+[tool.setuptools.package-data]
+skillguard = ["../rules/*.yaml"]

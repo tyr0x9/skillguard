@@ -1,0 +1,225 @@
+rules:
+  - id: sc_pip_unpinned
+    title: "Unpinned pip dependency"
+    description: "Unpinned dependencies can be automatically updated to malicious versions."
+    category: supply_chain
+    severity: MEDIUM
+    file_patterns:
+      - "requirements*.txt"
+      - "requirements.txt"
+    patterns:
+      - "^[A-Za-z0-9_\\-\\.]+\\s*$"
+      - "^[A-Za-z0-9_\\-\\.]+\\s*#"
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_npm_unpinned
+    title: "Non-exact npm version specifier"
+    description: "Using ^ or ~ allows automatic minor/patch updates which may introduce supply chain risks."
+    category: supply_chain
+    severity: LOW
+    file_patterns:
+      - "package.json"
+    patterns:
+      - "\"[A-Za-z0-9@/_\\-\\.]+\":\\s*\"[\\^~]"
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_no_lockfile
+    title: "Missing Python lockfile"
+    description: "requirements.txt without a lockfile can lead to non-reproducible builds."
+    category: supply_chain
+    severity: LOW
+    file_patterns:
+      - "requirements.txt"
+    patterns:
+      - "."
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_no_package_lock
+    title: "Missing npm/yarn lockfile"
+    description: "package.json without package-lock.json or yarn.lock allows version drift."
+    category: supply_chain
+    severity: MEDIUM
+    file_patterns:
+      - "package.json"
+    patterns:
+      - "."
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_requirements_no_hash
+    title: "requirements.txt without hash verification"
+    description: "Without hash verification, packages can be substituted with malicious versions."
+    category: supply_chain
+    severity: LOW
+    file_patterns:
+      - "requirements.txt"
+    patterns:
+      - "^[A-Za-z0-9_\\-\\.]+=="
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_pip_index_url_custom
+    title: "Custom PyPI index URL"
+    description: "Custom package indexes can serve malicious packages via dependency confusion attacks."
+    category: supply_chain
+    severity: HIGH
+    file_patterns:
+      - "requirements*.txt"
+      - "pip.conf"
+      - "setup.cfg"
+      - "pyproject.toml"
+    patterns:
+      - "--index-url\\s+(?!https://pypi\\.org)"
+      - "--extra-index-url\\s+(?!https://pypi\\.org)"
+      - "index-url\\s*=\\s*(?!https://pypi\\.org)"
+    execution_surface: [install]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: sc_npm_registry_custom
+    title: "Custom npm registry"
+    description: "Custom npm registries can serve malicious packages via dependency confusion attacks."
+    category: supply_chain
+    severity: HIGH
+    file_patterns:
+      - ".npmrc"
+      - "package.json"
+    patterns:
+      - "registry\\s*=\\s*(?!https://registry\\.npmjs\\.org)"
+      - "\"registry\":\\s*\"(?!https://registry\\.npmjs\\.org)"
+    execution_surface: [install]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: sc_dependency_confusion
+    title: "Internal package name conflict"
+    description: "Internal package names that match common public names can be targets for dependency confusion."
+    category: supply_chain
+    severity: HIGH
+    file_patterns:
+      - "requirements*.txt"
+      - "package.json"
+      - "pyproject.toml"
+    patterns:
+      - "^(internal|private|corp|company|org)-[A-Za-z0-9\\-]+"
+      - "\"(internal|private|corp|company|org)-[A-Za-z0-9\\-]+\""
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_recently_published
+    title: "Very low version package"
+    description: "Packages at version 0.0.x or 0.1.x may be newly created and have higher supply chain risk."
+    category: supply_chain
+    severity: LOW
+    file_patterns:
+      - "requirements*.txt"
+      - "package.json"
+    patterns:
+      - "==\\s*0\\.0\\.[0-9]+"
+      - "==\\s*0\\.1\\.[0-9]+"
+      - "\":\\s*\"0\\.0\\.[0-9]+"
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_typosquatting_common
+    title: "Known typosquatting package name"
+    description: "This package name resembles a known typosquatting attempt targeting popular packages."
+    category: supply_chain
+    severity: CRITICAL
+    file_patterns:
+      - "requirements*.txt"
+      - "package.json"
+    patterns:
+      - "\\b(reqeusts|requets|reqests|numpy1|numpys|panddas|pandes|djnago|flaskr|bottlee|torchh|tensorfow|scikit-learn1|matplotlip|beutifulsoup4|beautifulsoup4s|colorma|pilows|pilow|cryptografhy|pycrypto2|urllib4|urlib3|setuptool|setuptools2|pipenv2)\\b"
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_install_script
+    title: "Suspicious setup.py install script"
+    description: "setup.py with shell commands in install_requires or cmdclass can execute arbitrary code."
+    category: supply_chain
+    severity: HIGH
+    file_patterns:
+      - "setup.py"
+    patterns:
+      - "os\\.system\\s*\\("
+      - "subprocess\\.(call|run|Popen)[^)]{0,200}shell\\s*=\\s*True"
+      - "class\\s+Install[^:]*:[^\\n]{0,200}(os\\.system|subprocess)"
+    execution_surface: [install]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: sc_postinstall_script
+    title: "package.json postinstall with remote execution"
+    description: "postinstall scripts run automatically on npm install. Remote execution is particularly dangerous."
+    category: supply_chain
+    severity: CRITICAL
+    file_patterns:
+      - "package.json"
+    patterns:
+      - "\"postinstall\"[^\\n]{0,200}(curl|wget|fetch|http)"
+    execution_surface: [install]
+    capabilities: [shell, network]
+    asset_reach: []
+
+  - id: sc_git_dependency
+    title: "Git URL dependency"
+    description: "Git dependencies are mutable - the code can change without version pinning."
+    category: supply_chain
+    severity: HIGH
+    file_patterns:
+      - "requirements*.txt"
+      - "package.json"
+      - "pyproject.toml"
+    patterns:
+      - "git\\+https?://"
+      - "git\\+ssh://"
+      - "\"git\\+"
+      - "\"github:"
+      - "\"gitlab:"
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_vcs_dependency
+    title: "VCS dependency pinned to branch not tag"
+    description: "Pinning to a branch instead of a specific commit or tag allows the code to change."
+    category: supply_chain
+    severity: HIGH
+    file_patterns:
+      - "requirements*.txt"
+      - "package.json"
+    patterns:
+      - "git\\+[^@\\n]+@(main|master|develop|dev|trunk|HEAD)"
+      - "#(main|master|develop|dev|trunk|HEAD)$"
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []
+
+  - id: sc_wildcard_version
+    title: "Wildcard version specifier"
+    description: "Wildcard versions (*) allow any version to be installed, introducing supply chain risk."
+    category: supply_chain
+    severity: MEDIUM
+    file_patterns:
+      - "requirements*.txt"
+      - "package.json"
+      - "pyproject.toml"
+    patterns:
+      - "==\\s*\\*"
+      - "\":\\s*\"\\*\""
+      - ">=\\s*0\\.0\\.0[^,]"
+    execution_surface: [install]
+    capabilities: []
+    asset_reach: []

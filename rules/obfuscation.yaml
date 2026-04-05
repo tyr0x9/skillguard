@@ -1,0 +1,177 @@
+rules:
+  - id: obf_base64_encoded_payload
+    title: "Base64 encoded executable payload"
+    description: "Base64 encoded strings being decoded and executed are used to hide malicious code from static analysis."
+    category: obfuscation
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+      - "*.bash"
+      - "*.rb"
+    patterns:
+      - "base64\\.b64decode[^\\n]{0,200}(exec|eval|os\\.system|subprocess)"
+      - "b64decode[^\\n]{0,200}(exec|eval|system)"
+      - "atob[^\\n]{0,200}eval"
+      - "Buffer\\.from[^\\n]{0,200}base64[^\\n]{0,200}(eval|exec)"
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: obf_hex_encoded_command
+    title: "Hex-encoded shell command"
+    description: "Hex-encoded strings decoded at runtime are used to hide malicious commands."
+    category: obfuscation
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+    patterns:
+      - "\\\\x[0-9a-fA-F]{2}(\\\\x[0-9a-fA-F]{2}){10,}"
+      - "bytes\\.fromhex[^\\n]{0,200}(exec|eval|system)"
+      - "unhexlify[^\\n]{0,200}(exec|eval|system)"
+      - "parseInt[^\\n]{0,200}16[^\\n]{0,200}(eval|exec)"
+    execution_surface: [runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: obf_char_code_concat
+    title: "String built from character codes"
+    description: "Building strings from character codes (chr(), String.fromCharCode()) is used to evade string-based detection."
+    category: obfuscation
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    patterns:
+      - "chr\\([0-9]+\\)[^\\n]{0,50}\\+[^\\n]{0,50}chr\\([0-9]+\\)[^\\n]{0,50}\\+[^\\n]{0,50}chr\\([0-9]+\\)"
+      - "String\\.fromCharCode\\([0-9,\\s]+\\)"
+      - "join\\(map\\(chr,"
+    execution_surface: [runtime]
+    capabilities: []
+    asset_reach: []
+
+  - id: obf_rot13_decode
+    title: "ROT13 encoded payload"
+    description: "ROT13 encoding is used to obfuscate strings from simple pattern matching."
+    category: obfuscation
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    patterns:
+      - "\\.decode\\(['\"]rot.?13['\"]\\)"
+      - "codecs\\.decode[^\\n]{0,100}rot"
+      - "str\\.translate[^\\n]{0,200}maketrans[^\\n]{0,200}rot"
+      - "ROT13"
+    execution_surface: [runtime]
+    capabilities: []
+    asset_reach: []
+
+  - id: obf_gzip_decompress_exec
+    title: "gzip decompress and execute"
+    description: "Decompressing gzip data at runtime and executing it is used to hide payloads."
+    category: obfuscation
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+    patterns:
+      - "gzip\\.decompress[^\\n]{0,200}(exec|eval|system)"
+      - "zlib\\.decompress[^\\n]{0,200}(exec|eval|system)"
+      - "gunzip[^|\\n]{0,100}\\|[^|\\n]{0,50}(sh|bash|python)"
+      - "zcat[^|\\n]{0,100}\\|[^|\\n]{0,50}(sh|bash|python)"
+    execution_surface: [runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: obf_eval_atob
+    title: "eval(atob(...)) JavaScript obfuscation"
+    description: "eval(atob(...)) decodes base64 and executes it, a common JavaScript obfuscation technique."
+    category: obfuscation
+    severity: CRITICAL
+    file_patterns:
+      - "*.js"
+      - "*.ts"
+      - "*.mjs"
+      - "*.html"
+    patterns:
+      - "eval\\s*\\(\\s*atob\\s*\\("
+      - "eval\\s*\\(\\s*Buffer\\.from[^)]{0,100}base64[^)]{0,100}\\)\\.toString"
+      - "Function\\s*\\(\\s*atob"
+    execution_surface: [runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: obf_python_compile_exec
+    title: "compile() and exec() combination"
+    description: "Using compile() with exec() can obfuscate the source of executed code."
+    category: obfuscation
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "compile\\s*\\([^)]{0,200}\\)\\s*[^\\n]{0,100}exec"
+      - "exec\\s*\\(\\s*compile\\s*\\("
+    execution_surface: [runtime]
+    capabilities: [process]
+    asset_reach: []
+
+  - id: obf_string_reverse
+    title: "Reversed string with exec"
+    description: "Reversing strings to hide commands from static analysis before executing them."
+    category: obfuscation
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    patterns:
+      - "exec\\s*\\([^)]{0,100}\\[::\\-1\\]"
+      - "eval\\s*\\([^)]{0,100}\\.split\\(['\"]['\"]\\)\\.reverse\\(\\)"
+      - "\\[::\\-1\\][^\\n]{0,50}(exec|eval|system)"
+    execution_surface: [runtime]
+    capabilities: [process]
+    asset_reach: []
+
+  - id: obf_unicode_escape
+    title: "Unicode escape sequences for evasion"
+    description: "Heavy use of unicode escape sequences can be used to hide malicious code."
+    category: obfuscation
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    patterns:
+      - "(\\\\u[0-9a-fA-F]{4}){5,}"
+      - "(\\\\[0-9]{3}){5,}"
+      - "\\\\x[0-9a-fA-F]{2}[^\\n]{0,20}\\\\x[0-9a-fA-F]{2}[^\\n]{0,20}\\\\x[0-9a-fA-F]{2}[^\\n]{0,20}(exec|eval|system)"
+    execution_surface: [runtime]
+    capabilities: []
+    asset_reach: []
+
+  - id: obf_comment_junk
+    title: "Excessive junk comments as obfuscation"
+    description: "Large blocks of random-looking comments can be used to hide malicious code or pad files."
+    category: obfuscation
+    severity: LOW
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.sh"
+    patterns:
+      - "#[A-Za-z0-9+/=]{40,}$"
+      - "//[A-Za-z0-9+/=]{40,}$"
+      - "/\\*[A-Za-z0-9+/=]{100,}\\*/"
+    execution_surface: []
+    capabilities: []
+    asset_reach: []

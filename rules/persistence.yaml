@@ -1,0 +1,185 @@
+rules:
+  - id: persist_pth_file
+    title: ".pth file (Python path injection)"
+    description: ".pth files in site-packages are executed at Python startup, making them a persistence mechanism."
+    category: persistence
+    severity: CRITICAL
+    file_patterns:
+      - "*.pth"
+    patterns:
+      - "import\\s+os"
+      - "import\\s+sys"
+      - "import\\s+subprocess"
+      - "os\\.system"
+      - "__import__"
+      - "exec\\s*\\("
+    execution_surface: [install]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: persist_sitecustomize
+    title: "sitecustomize.py modification"
+    description: "sitecustomize.py is executed at Python startup. Modifying it achieves persistence."
+    category: persistence
+    severity: CRITICAL
+    file_patterns:
+      - "sitecustomize.py"
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+    patterns:
+      - "sitecustomize\\.py"
+      - "site-packages[/\\\\]sitecustomize"
+    execution_surface: [install]
+    capabilities: [filesystem, process]
+    asset_reach: []
+
+  - id: persist_crontab
+    title: "crontab modification"
+    description: "Modifying crontab entries achieves persistence by scheduling code to run periodically."
+    category: persistence
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "scripts/*"
+    patterns:
+      - "crontab\\s+-[el]"
+      - "\\bcrontab\\s+[^\\n]{0,100}(curl|wget|bash|sh|python|node)"
+      - "echo[^\\n]{0,100}cron"
+      - "/etc/cron"
+    execution_surface: [install]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: persist_systemd_service
+    title: "systemd service file creation"
+    description: "Creating systemd service files enables persistence across reboots."
+    category: persistence
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "scripts/*"
+    patterns:
+      - "/etc/systemd/system/"
+      - "systemctl\\s+(enable|start|daemon-reload)"
+      - "\\.service\\s*\\]"
+      - "\\[Unit\\][\\s\\S]{0,500}\\[Service\\]"
+    execution_surface: [install]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: persist_launchctl
+    title: "launchctl / LaunchAgents (macOS persistence)"
+    description: "LaunchAgents and launchctl are used for persistence on macOS systems."
+    category: persistence
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "*.plist"
+      - "scripts/*"
+    patterns:
+      - "launchctl\\s+(load|bootstrap|submit)"
+      - "Library/LaunchAgents"
+      - "Library/LaunchDaemons"
+      - "com\\.apple\\.launchd"
+    execution_surface: [install]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: persist_bashrc_profile
+    title: ".bashrc / .bash_profile modification"
+    description: "Modifying shell configuration files achieves persistence in user shell sessions."
+    category: persistence
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "scripts/*"
+    patterns:
+      - "~/\\.bashrc"
+      - "~/\\.bash_profile"
+      - "~/\\.profile"
+      - "~/\\.zshrc"
+      - "~/\\.zprofile"
+      - "echo[^\\n]{0,200}>>\\s*~?/?\\.bashrc"
+      - "echo[^\\n]{0,200}>>\\s*~?/?\\.zshrc"
+      - "echo[^\\n]{0,200}>>\\s*~?/?\\.profile"
+    execution_surface: [install]
+    capabilities: [filesystem]
+    asset_reach: []
+
+  - id: persist_autostart
+    title: "XDG autostart entry"
+    description: "XDG autostart entries in ~/.config/autostart enable persistence in desktop environments."
+    category: persistence
+    severity: MEDIUM
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "scripts/*"
+    patterns:
+      - "\\.config/autostart"
+      - "/etc/xdg/autostart"
+      - "XDG_CONFIG_HOME.*autostart"
+    execution_surface: [install]
+    capabilities: [filesystem]
+    asset_reach: []
+
+  - id: persist_registry_run
+    title: "Windows registry Run key modification"
+    description: "Writing to the Windows registry Run keys achieves persistence on Windows systems."
+    category: persistence
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.bat"
+      - "*.cmd"
+      - "*.ps1"
+    patterns:
+      - "HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"
+      - "HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"
+      - "winreg\\.(OpenKey|SetValueEx)[^\\n]{0,200}Run"
+      - "reg\\s+add[^\\n]{0,200}\\\\Run"
+    execution_surface: [install]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: persist_git_hooks
+    title: ".git/hooks modification"
+    description: "Git hooks run automatically on git operations. Modifying them achieves persistence."
+    category: persistence
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "scripts/*"
+    patterns:
+      - "\\.git/hooks/"
+      - "git\\s+hooks"
+      - "githooks"
+    execution_surface: [hook]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: persist_npm_postinstall
+    title: "npm postinstall script"
+    description: "npm postinstall scripts run automatically during package installation, enabling automatic code execution."
+    category: persistence
+    severity: HIGH
+    file_patterns:
+      - "package.json"
+    patterns:
+      - "\"postinstall\""
+      - "'postinstall'"
+    execution_surface: [install]
+    capabilities: [shell, process]
+    asset_reach: []

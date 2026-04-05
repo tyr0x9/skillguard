@@ -1,0 +1,272 @@
+rules:
+  - id: net_requests_post_external
+    title: "HTTP POST to external host"
+    description: "Sending POST requests to external servers may indicate data exfiltration."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "requests\\.post\\s*\\(['\"]https?://(?!localhost|127\\.0\\.0\\.1|::1)"
+      - "requests\\.put\\s*\\(['\"]https?://(?!localhost|127\\.0\\.0\\.1|::1)"
+      - "requests\\.patch\\s*\\(['\"]https?://(?!localhost|127\\.0\\.0\\.1|::1)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_fetch_external
+    title: "fetch() to external URL"
+    description: "Fetching from external URLs can indicate data exfiltration or remote code loading."
+    category: network
+    severity: MEDIUM
+    file_patterns:
+      - "*.js"
+      - "*.ts"
+      - "*.mjs"
+    patterns:
+      - "fetch\\s*\\(['\"]https?://(?!localhost|127\\.0\\.0\\.1)"
+      - "fetch\\s*\\(`https?://(?!localhost|127\\.0\\.0\\.1)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_axios_post
+    title: "axios POST to external URL"
+    description: "axios POST to external URLs may indicate data exfiltration."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.js"
+      - "*.ts"
+      - "*.mjs"
+    patterns:
+      - "axios\\.post\\s*\\(['\"]https?://(?!localhost|127\\.0\\.0\\.1)"
+      - "axios\\.put\\s*\\(['\"]https?://(?!localhost|127\\.0\\.0\\.1)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_raw_socket
+    title: "Raw socket creation and connect"
+    description: "Raw socket connections to external hosts can be used for C2 or data exfiltration."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+    patterns:
+      - "socket\\.socket\\s*\\([^)]*\\)\\s*\\n[^\\n]{0,500}\\.connect\\s*\\("
+      - "import\\s+socket[^\\n]{0,200}\\.connect\\s*\\(['\"][0-9]{1,3}\\."
+      - "socket\\.create_connection\\s*\\([^)]{0,200}\\)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_dns_lookup_dynamic
+    title: "Dynamic DNS lookup with user data"
+    description: "DNS lookups with user-controlled data can be used for DNS exfiltration."
+    category: network
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    patterns:
+      - "socket\\.gethostbyname\\s*\\([^'\"()]{0,50}\\)"
+      - "dns\\.lookup\\s*\\([^'\"()]{0,50}\\)"
+      - "resolve\\.lookup\\s*\\("
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_exfil_env_vars
+    title: "Sending environment variables over network"
+    description: "Sending environment variables over a network connection can expose secrets and credentials."
+    category: network
+    severity: CRITICAL
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+      - "*.bash"
+    patterns:
+      - "os\\.environ[^\\n]{0,200}(requests\\.|fetch|axios|http)"
+      - "process\\.env[^\\n]{0,200}(fetch|axios|http)"
+      - "dict\\(os\\.environ\\)[^\\n]{0,200}(post|put|send)"
+      - "\\$\\{?ENV\\}?[^\\n]{0,100}curl"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: [secret, credential]
+
+  - id: net_curl_post_data
+    title: "curl POST with potentially sensitive data"
+    description: "curl -d or --data with system data patterns may indicate data exfiltration."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+    patterns:
+      - "curl[^\\n]{0,200}(-d|--data)[^\\n]{0,200}(\\$HOME|\\$USER|\\$LOGNAME|passwd|shadow|credential)"
+      - "curl[^\\n]{0,200}(-F|--form)[^\\n]{0,200}(\\$HOME|~/.ssh|~/.aws)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: [credential, secret]
+
+  - id: net_webhook_post
+    title: "Webhook POST with system data"
+    description: "Posting system information to webhooks can indicate data exfiltration."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+    patterns:
+      - "webhook[^\\n]{0,200}(hostname|username|environ|getenv|whoami)"
+      - "discord\\.com/api/webhooks[^\\n]{0,200}(data|json|payload)"
+      - "hooks\\.slack\\.com[^\\n]{0,200}(data|json|payload)"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: [secret]
+
+  - id: net_smtp_send
+    title: "Sending email with data"
+    description: "Sending email with collected data can indicate exfiltration via SMTP."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    patterns:
+      - "smtplib\\.SMTP"
+      - "smtp\\.send(mail|Message)"
+      - "nodemailer\\.createTransport"
+      - "mail\\.send\\s*\\("
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_ftp_upload
+    title: "FTP file upload"
+    description: "FTP uploads can be used to exfiltrate files to remote servers."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.sh"
+      - "*.bash"
+    patterns:
+      - "ftplib\\.FTP\\s*\\("
+      - "\\bftp\\.storbinary\\b"
+      - "\\bftp\\.storlines\\b"
+      - "\\bcurl\\s+[^\\n]{0,100}ftp://"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_ngrok_tunnel
+    title: "ngrok or similar tunnel setup"
+    description: "Setting up tunnels like ngrok can expose internal services or create backdoors."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+      - "*.bash"
+    patterns:
+      - "ngrok\\.(connect|start|authtoken)"
+      - "pyngrok"
+      - "localhost\\.run"
+      - "serveo\\.net"
+      - "bore\\.pub"
+    execution_surface: [install, runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_reverse_shell
+    title: "Reverse shell pattern"
+    description: "Reverse shell commands open an interactive shell to a remote attacker."
+    category: network
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "*.rb"
+      - "*.pl"
+    patterns:
+      - "nc\\s+(-e|-c)[^\\n]{0,100}(bash|sh|cmd)"
+      - "bash\\s+-i\\s+>&\\s*/dev/tcp/"
+      - "bash\\s+-i[^\\n]{0,50}>&[^\\n]{0,50}/dev/(tcp|udp)/"
+      - "/dev/tcp/[0-9]"
+      - "python[23]?[^\\n]{0,100}import\\s+pty[^\\n]{0,100}spawn"
+    execution_surface: [install, runtime]
+    capabilities: [shell, network]
+    asset_reach: []
+
+  - id: net_c2_beacon
+    title: "C2 beacon-like periodic requests"
+    description: "Periodic HTTP requests to external servers can indicate command-and-control (C2) communication."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+    patterns:
+      - "while\\s+(True|1|true)[^\\n]{0,200}(requests\\.|fetch|curl|wget)"
+      - "setInterval[^)]{0,200}(fetch|axios|http\\.get)"
+      - "time\\.sleep[^\\n]{0,200}requests\\."
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_ip_geolocation
+    title: "IP geolocation lookup (potential tracking)"
+    description: "Querying IP geolocation services can be used to track users or environments."
+    category: network
+    severity: MEDIUM
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+    patterns:
+      - "ipinfo\\.io"
+      - "ip-api\\.com"
+      - "api\\.ipgeolocation\\.io"
+      - "ip\\.me"
+      - "whatismyip"
+      - "checkip\\.amazonaws\\.com"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: []
+
+  - id: net_pastebin_post
+    title: "Posting to pastebin-like service"
+    description: "Posting data to pastebin-like services can be used to exfiltrate information."
+    category: network
+    severity: HIGH
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sh"
+      - "*.bash"
+    patterns:
+      - "pastebin\\.com/api"
+      - "hastebin\\.com"
+      - "paste\\.ee"
+      - "ghostbin\\.co"
+      - "transfer\\.sh"
+      - "0x0\\.st"
+    execution_surface: [runtime]
+    capabilities: [network]
+    asset_reach: [secret, credential]

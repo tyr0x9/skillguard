@@ -1,0 +1,96 @@
+rules:
+  - id: dest_rm_rf_root
+    title: "rm -rf / or rm -rf /*"
+    description: "Recursive deletion of the root filesystem will destroy the entire system."
+    category: destructive
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "*.rb"
+      - "*.pl"
+      - "scripts/*"
+    patterns:
+      - "rm\\s+-[rRf]{2,}\\s+/"
+      - "rm\\s+--recursive[^\\n]{0,50}\\s+/"
+      - "rm\\s+-[rRf]+\\s+/\\*"
+      - "rm\\s+-[rRf]+\\s+\"?/\"?"
+    execution_surface: [install, runtime]
+    capabilities: [shell, filesystem]
+    asset_reach: []
+
+  - id: dest_fork_bomb
+    title: "Fork bomb pattern"
+    description: "A fork bomb will exhaust system process resources and crash the system."
+    category: destructive
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "scripts/*"
+    patterns:
+      - ":\\(\\)\\s*\\{\\s*:\\|:&\\s*\\}"
+      - "\\(\\)\\s*\\{.*\\|.*&.*\\}"
+      - "bomb\\(\\).*bomb.*bomb"
+    execution_surface: [install, runtime]
+    capabilities: [shell, process]
+    asset_reach: []
+
+  - id: dest_disk_wipe
+    title: "Disk wipe via dd"
+    description: "Writing zeros or random data to a block device will permanently destroy data."
+    category: destructive
+    severity: CRITICAL
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "scripts/*"
+    patterns:
+      - "dd\\s+if=/dev/(zero|random|urandom)\\s+of=/dev/[sh]d"
+      - "dd\\s+if=/dev/(zero|random|urandom)\\s+of=/dev/nvme"
+      - "dd\\s+if=/dev/(zero|random|urandom)\\s+of=/dev/disk"
+      - "dd\\s+if=/dev/zero[^\\n]{0,100}of=/dev/"
+    execution_surface: [install, runtime]
+    capabilities: [shell, filesystem]
+    asset_reach: []
+
+  - id: dest_drop_database
+    title: "DROP DATABASE or DROP TABLE"
+    description: "DROP DATABASE or DROP TABLE CASCADE will permanently delete database tables and data."
+    category: destructive
+    severity: CRITICAL
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.sql"
+      - "*.sh"
+      - "*.rb"
+    patterns:
+      - "DROP\\s+DATABASE\\s+(?!IF\\s+EXISTS\\s+test)"
+      - "DROP\\s+TABLE\\s+(?!IF\\s+EXISTS\\s+test)[^\\n]{0,100}CASCADE"
+      - "DROP\\s+SCHEMA\\s+(?!IF\\s+EXISTS\\s+test)"
+      - "TRUNCATE\\s+TABLE[^\\n]{0,100}(CASCADE|RESTART)"
+    execution_surface: [runtime]
+    capabilities: [filesystem]
+    asset_reach: []
+
+  - id: dest_shred_files
+    title: "shred on important files"
+    description: "shred -u permanently and irreversibly destroys file contents."
+    category: destructive
+    severity: HIGH
+    file_patterns:
+      - "*.sh"
+      - "*.bash"
+      - "*.py"
+      - "scripts/*"
+    patterns:
+      - "shred\\s+-u[^\\n]{0,100}(~/.ssh|~/.aws|~/.kube|/etc|/home)"
+      - "shred\\s+--remove[^\\n]{0,100}(~/.ssh|~/.aws|~/.kube|/etc)"
+      - "wipe\\s+-[rRf]{1,}[^\\n]{0,100}(~/.ssh|~/.aws|/etc)"
+    execution_surface: [install, runtime]
+    capabilities: [shell, filesystem]
+    asset_reach: [credential, key]
