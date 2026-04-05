@@ -3,7 +3,7 @@ requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "skillguard"
+name = "skillguard-ai"
 version = "0.1.0"
 description = "AI Agent Skill Supply Chain Security Scanner"
 readme = "README.md"
